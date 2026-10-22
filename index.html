@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>PrivateHQ</title>
+
+icon.png
+icon.png
+manifest.json
+<meta name="theme-color" content="#4f46e5">
+
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f3f4f6;color:#111}
+header{background:#4f46e5;color:#fff;padding:14px;text-align:center;font-size:1.3rem;font-weight:700}
+.main{max-width:900px;margin:auto;padding:12px}
+.card{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+input,select,textarea,button{width:100%;box-sizing:border-box;padding:10px;margin:6px 0;border:1px solid #d1d5db;border-radius:8px}
+button{background:#4f46e5;color:#fff;border:none}
+.task{
+border:1px solid #e5e7eb;
+border-radius:10px;
+padding:10px;
+}
+.small{font-size:.85rem;color:#666}
+.overdue{color:#dc2626;font-weight:bold}
+.taskGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:8px;
+}
+.home{
+  background:#eff6ff;
+  border-color:#bfdbfe;
+}
+
+.nayuta{
+  background:#f0fdf4;
+  border-color:#bbf7d0;
+}
+
+.book{
+  background:#fffbeb;
+  border-color:#fde68a;
+}
+
+.game{
+  background:#f5f3ff;
+  border-color:#ddd6fe;
+}
+
+.novel{
+  background:#fdf2f8;
+  border-color:#fbcfe8;
+}
+
+.hobby{
+  background:#ecfeff;
+  border-color:#a5f3fc;
+}
+
+.travel{
+  background:#fff7ed;
+  border-color:#fed7aa;
+}
+</style>
+</head><body>
+<header>PrivateHQ v3</header>
+<div class='main'>
+<div class='card'>
+<h3 id='formTitle'>➕ Task</h3>
+<input id='title' placeholder='タイトル'>
+<select id='status'><option>Must</option><option>Want</option><option>Someday</option><option>Complete</option></select>
+<select id='category'>
+<option>🏠 Home</option><option>🐱 Nayuta</option><option>📚 Book</option><option>🎮 Game</option><option>✍ Novel</option><option>🎹 Hobby</option><option>✈ Travel</option>
+</select>
+<input id='dueDate' type='date'>
+<textarea id='memo' placeholder='メモ'></textarea>
+<button id='saveBtn'>保存</button>
+</div>
+<div class='card'><h2>⚠ Must (<span id='cMust'>0</span>)</h2><div id='must'></div></div>
+<div class='card'><h2>⭐ Want (<span id='cWant'>0</span>)</h2><div id='want'></div></div>
+<div class='card'><h2>❤️ Someday (<span id='cSomeday'>0</span>)</h2><div id='someday'></div></div>
+<div class='card'><details><summary>✅ Complete (<span id='cComplete'>0</span>)</summary><div id='complete'></div></details></div>
+</div>
+<script>
+const KEY='privatehq_v3';
+let tasks=JSON.parse(localStorage.getItem(KEY)||'[]');
+let editId=null;
+const $=id=>document.getElementById(id);
+function saveStore(){localStorage.setItem(KEY,JSON.stringify(tasks));}
+$('saveBtn').addEventListener('click',()=>{
+ const title=$('title').value.trim();
+ if(!title){alert('タイトルを入力してください');return;}
+ const obj={title,status:$('status').value, category:$('category').value,dueDate:$('dueDate').value,memo:$('memo').value};
+ if(editId){const t=tasks.find(x=>x.id===editId);Object.assign(t,obj);editId=null;$('formTitle').textContent='➕ Task';}
+ else{tasks.push({id:Date.now()+Math.random(),...obj});}
+ clearForm();saveStore();render();
+});
+function clearForm(){['title','dueDate','memo'].forEach(i=>$(i).value='');$('status').value='Must'; $('category').selectedIndex=0;}
+function editTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;editId=id;$('formTitle').textContent='✏ Edit Task';$('title').value=t.title;$('status').value=t.status; $('category').value=t.category;$('dueDate').value=t.dueDate;$('memo').value=t.memo;window.scrollTo({top:0,behavior:'smooth'});}
+function delTask(id){if(!confirm('削除しますか？'))return;tasks=tasks.filter(x=>x.id!==id);saveStore();render();}
+function nextStatus(id){const order=['Must','Want','Someday','Complete'];const t=tasks.find(x=>x.id===id);let i=order.indexOf(t.status);if(i<order.length-1)t.status=order[i+1];saveStore();render();}
+function card(t){
+const today=new Date().toISOString().slice(0,10);
+let od=(t.status==='Must'&&t.dueDate&&t.dueDate<today)?'<div class="overdue">⚠ OVERDUE</div>':'';
+
+const cls={
+  "🏠 Home":"home",
+  "🐱 Nayuta":"nayuta",
+  "📚 Book":"book",
+  "🎮 Game":"game",
+  "✍ Novel":"novel",
+  "🎹 Hobby":"hobby",
+  "✈ Travel":"travel"
+}[t.category] || "";
+
+return `<div class='task ${cls}' onclick='editTask(${JSON.stringify(t.id)})'>
+<b>${t.category} ${t.title}</b>${t.dueDate?`
+<div class='small'>📅 ${t.dueDate}</div>`:''}
+${od}
+${t.memo?`<div class='small'>${t.memo}</div>`:''}
+
+</div>`;
+}
+
+function renderGroup(name,target,countId){
+  const arr=tasks.filter(x=>x.status===name);
+
+  if(name==='Must')
+    arr.sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+
+  $(target).innerHTML =
+    "<div class='taskGrid'>" +
+    arr.map(card).join('') +
+    "</div>";
+
+  $(countId).textContent=arr.length;}
+function render(){renderGroup('Must','must','cMust');renderGroup('Want','want','cWant');renderGroup('Someday','someday','cSomeday');renderGroup('Complete','complete','cComplete');}
+render();
+</script></body></html>
+
